@@ -71,8 +71,11 @@ namespace BikeNet
 
             cargargrdDst(año1, ref this.chrCmpDst, año1.ToString());
             cargargrdDst(año2, ref this.chrCmpDst, año2.ToString());
+            
+            miApi.addGapRowGrid(this.grdCmpDst, año1, año2);
         }
 
+       
 
 
         private void setColHeaderGrdCmpDst(DataGridView grd)
@@ -212,6 +215,8 @@ namespace BikeNet
 
                 cargargrdDst(año1, ref chrCmpDst,año1.ToString());
                 cargargrdDst(año2, ref chrCmpDst, año2.ToString());
+
+                miApi.addGapRowGrid(this.grdCmpDst, año1, año2);
             }
 
         }

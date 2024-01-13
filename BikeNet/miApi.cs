@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using System.Data.SQLite;
 using System.Windows.Forms.DataVisualization.Charting;
 using System.Configuration;
+using OfficeOpenXml;
 
 namespace BikeNet
 { 
@@ -275,6 +276,60 @@ namespace BikeNet
          }
 
 
+        public static bool IsNull(object T)
+        {
+            return T == null;
+        }
+
+        public static string GetXlsCellContent(int nfila, int ncol, ExcelWorksheet xlWorksheet)
+        {
+            object celda_value = xlWorksheet.Cells[nfila, ncol].Value ?? "";
+            string celda_strval = celda_value.ToString();
+
+            return celda_strval;
+        }
+
+
+        public static void addGapRowGrid(DataGridView grd, int año1, int año2)
+        {
+            if (grd.Rows.Count == 2)
+            {
+                grd.Rows.Add();
+                int nrow = grd.Rows.Count - 1;
+                int currentMonth = DateTime.Now.Month;
+                int currentYear = DateTime.Now.Year;
+
+                grd.Rows[nrow].Cells[0].Value = "GAP";
+
+                for (int ncol = 1; ncol < grd.Columns.Count; ncol++)
+                {
+
+                    if (año1 == currentYear || año2 == currentYear)
+                        if (ncol <= currentMonth)
+                            break;
+
+                    string dstCurYear = "0";
+                    string dstPrevYear = "0";
+
+                    if (!miApi.IsNull(grd.Rows[0].Cells[ncol].Value))
+                        dstCurYear = grd.Rows[0].Cells[ncol].Value.ToString();
+
+                    if (!miApi.IsNull(grd.Rows[1].Cells[ncol].Value))
+                        dstPrevYear = grd.Rows[1].Cells[ncol].Value.ToString();
+
+                    if (dstCurYear != "0" || dstPrevYear != "0")
+                    {
+                        double valDstCur, valDstPrev, valGap;
+                        double.TryParse(dstCurYear, out valDstCur);
+                        double.TryParse(dstPrevYear, out valDstPrev);
+                        valGap = valDstCur - valDstPrev;
+                        grd.Rows[nrow].Cells[ncol].Value = valGap;
+                    }
+                }
+
+            }
+
+        }
 
 
     }

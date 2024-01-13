@@ -13,6 +13,7 @@ using System.IO;
 using OfficeOpenXml;
 using OfficeOpenXml.Drawing;
 using System.Globalization;
+using static System.Net.WebRequestMethods;
 
 namespace BikeNet
 {
@@ -20,13 +21,22 @@ namespace BikeNet
     {
         private const int maxRegistrosExcel= 120;
 
-        private enum colXls
+        private const string EndData= "EOD";
+        private const string ToProcess = "PROC";
+        private const string SavedDB = "SDB";
+
+
+        private enum ColXls
         {
-            fecha=1,
+            status=1,
+            fecYear,
+            fecMonth,
+            fecDay,
             dst,
-            time,
-            velo,
-            inserted
+            timeHours,
+            timeMinutes,
+            timeSeconds,
+            avgSpeed
         }
 
         private SQLiteConnection bikedb;
@@ -80,6 +90,8 @@ namespace BikeNet
         //}
 
         const string sheetName = @"datos";
+
+       
 
         private void ImportarToBd_v2()
         {
@@ -221,6 +233,145 @@ namespace BikeNet
             }
 
         }
+        private void ImportarToBd_v3()
+        {
+            int nfila, nrowgrid;
+            //string strfila;
+            string ficheroxls;
+            string strfecha, strtiempo;
+            string strsql;
+            int nreg;
+
+            DateTime dtconversion;
+            Single duracionsecs;
+            SQLiteCommand comando;
+
+            comando = new SQLiteCommand(bikedb);
+
+            nrowgrid = 0;
+
+            ficheroxls = miApi.ReadVarAppConfig("ruta_xls");
+          
+            FileInfo newFile = new FileInfo(ficheroxls);
+
+            CultureInfo enUS = new CultureInfo("en-US");
+            bool errorCamposExcel = false;
+
+            using (ExcelPackage xlPackage = new ExcelPackage(newFile)) // create the xlsx file
+            {
+
+                // use LINQ to query collection of worksheets
+                ExcelWorksheet xlWorksheet = xlPackage.Workbook.Worksheets.SingleOrDefault(ws => ws.Name == sheetName);
+                if (xlWorksheet != null)
+                {
+
+                    string status, fecYear, fecMonth, fecDay, dst;
+                    string timeH, timeMin, timeSec, avgSpeed;
+                    string fecha, time_hms;
+                   
+
+                    for (nfila = 2; nfila < maxRegistrosExcel; nfila++)
+                    {                       
+                       status = miApi.GetXlsCellContent(nfila, (int)ColXls.status, xlWorksheet);
+
+                        if (status == EndData)
+                            break;
+
+                        if (status == ToProcess)
+                        {
+
+                            fecYear = miApi.GetXlsCellContent(nfila, (int)ColXls.fecYear, xlWorksheet);
+                            fecMonth = miApi.GetXlsCellContent(nfila, (int)ColXls.fecMonth, xlWorksheet);
+                            fecDay = miApi.GetXlsCellContent(nfila, (int)ColXls.fecDay, xlWorksheet);
+                            dst = miApi.GetXlsCellContent(nfila, (int)ColXls.dst, xlWorksheet);
+                            avgSpeed = miApi.GetXlsCellContent(nfila, (int)ColXls.avgSpeed, xlWorksheet);
+                            timeH = miApi.GetXlsCellContent(nfila, (int)ColXls.timeHours, xlWorksheet);
+                            timeMin = miApi.GetXlsCellContent(nfila, (int)ColXls.timeMinutes, xlWorksheet);
+                            timeSec = miApi.GetXlsCellContent(nfila, (int)ColXls.timeSeconds, xlWorksheet);
+
+                            if ( fecYear!="" && fecMonth!="" && fecDay!=""  &&                          timeH != "" && timeMin != "" && timeSec != "" &&
+                               dst != "" && avgSpeed != "" )                               
+                            {
+                                errorCamposExcel = false;
+                                strfecha = "";
+                                strtiempo = "";
+                                duracionsecs = -1;
+
+                                fecha = string.Format("{0:0000}{1:00}{2:00}", fecYear, fecMonth, fecDay);
+                                                        
+                                time_hms = string.Format("{0:00}:{1:00}:{2:00}", timeH, timeMin, timeSec);
+                                                             
+                                dgvImport.Rows.Add();
+
+                              
+                                if (DateTime.TryParseExact(fecha, "yyyyMMdd", enUS, DateTimeStyles.None, out dtconversion))
+                                {
+                                    strfecha = dtconversion.Date.ToShortDateString();
+                                    dgvImport.Rows[nrowgrid].Cells[0].Value = strfecha;
+                                }
+                                else
+                                    errorCamposExcel = true;
+
+                                dgvImport.Rows[nrowgrid].Cells[1].Value = dst;
+
+                             
+                                if (DateTime.TryParseExact(time_hms, "h:mm:ss", enUS, DateTimeStyles.None, out dtconversion))
+                                {
+                                    strtiempo = dtconversion.ToLongTimeString();
+                                    dgvImport.Rows[nrowgrid].Cells[2].Value = strtiempo;
+                                    duracionsecs = miApi.converthhmmss_secs(strtiempo);
+                                }
+                                else
+                                    errorCamposExcel = true;
+
+                                dgvImport.Rows[nrowgrid].Cells[3].Value = avgSpeed;
+
+                                if (!errorCamposExcel)
+                                {
+                                    strsql = "Insert Into tbl_workout " +
+                                    " (tipoactividad, intanyo, intmes, dtfecha " +
+                                    ", duracion, distancia, velocidad, dtimported) " +
+                                    " Values (2, " + DateTime.Parse(strfecha).Year +
+                                    ", " + DateTime.Parse(strfecha).Month +
+                                    ", '" + miApi.SetAnsiFecha(DateTime.Parse(strfecha)) + "'" +
+                                    ", " + duracionsecs +
+                                    ", " + dst.Replace(",", ".") +
+                                    ", " + avgSpeed.Replace(",", ".") +
+                                    ", '" + miApi.SetAnsiFechaTiempo(DateTime.Now) + "')";
+
+                                    comando.CommandText = strsql;
+                                    nreg = comando.ExecuteNonQuery();
+                                    
+                                    if (nreg > 0)
+                                    {
+                                      
+                                        xlWorksheet.Cells[nfila, (int)ColXls.status].Value = SavedDB;
+                                        this.txtLogSql.AppendText(strsql + "\n");
+                                        xlPackage.Save();
+                                    }
+
+                                }
+                                else
+                                {
+                                    this.txtLogSql.AppendText("Error procesando fila " + nfila + "\n");
+                                }
+
+                                nrowgrid++;
+
+
+                            }
+
+
+                        }
+
+                    }
+
+                }
+
+
+            }
+
+        }
 
         //funcion que abre el fichero Excel
         //lee cada fila no sombreada en gris, la vuelca a la bd y al grid
@@ -230,7 +381,7 @@ namespace BikeNet
         //    Workbook objLibro;
         //    Worksheet objHoja;
         //    Range objRango;
-            
+
         //    int nfila, nrowgrid, nreg;
         //    Boolean continuar;
         //    string ficheroxls;
@@ -244,7 +395,7 @@ namespace BikeNet
         //    DateTime dtconversion;
         //    Single duracionsecs;
         //    SQLiteCommand comando;
-           
+
 
 
         //    ficheroxls = miApi.ReadVarAppConfig("ruta_xls");
@@ -265,13 +416,13 @@ namespace BikeNet
 
         //    while (nfila < maxRegistrosExcel && continuar)
         //    {
-               
+
         //        strnumfila = nfila.ToString();
 
         //        dblColorFondo = objHoja.get_Range("A" + strnumfila).Interior.Color;
 
         //        //Color colorcelda = System.Drawing.ColorTranslator.FromOle((int)dblColorFondo);
-                
+
         //        fechaexcel = "0";
         //        dstexcel = "";
         //        tiempoexcel = "0";
@@ -297,7 +448,7 @@ namespace BikeNet
 
         //            //Velocidad
         //            LeerCeldaXls(nfila, colXls.velo, objRango, ref veloexcel);
-                  
+
 
         //            if (fechaexcel != "0" && tiempoexcel != "0" && dstexcel != "")
         //            {
@@ -397,8 +548,7 @@ namespace BikeNet
 
         private void BtVolcar_Click(object sender, EventArgs e)
         {
-            //ImportarToBd();
-            ImportarToBd_v2();
+            ImportarToBd_v3();
         }
 
 
