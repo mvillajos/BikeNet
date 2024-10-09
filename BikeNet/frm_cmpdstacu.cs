@@ -80,11 +80,11 @@ namespace BikeNet
 
             miApi.SetGrdReadOnly(grd);
             grd.ColumnCount = 13;
-            miApi.setColHeader(grd, 0, "Año", 45);
+            miApi.setColHeader(grd, 0, "Año", 40);
             for (i = 1; i <= 12; i++)
             {
                 strmes = Microsoft.VisualBasic.DateAndTime.MonthName(i, true);
-                miApi.setColHeader(grd, i, strmes, 50);
+                miApi.setColHeader(grd, i, strmes, 54);
             }
 
         }

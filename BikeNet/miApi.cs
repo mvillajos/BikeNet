@@ -305,7 +305,7 @@ namespace BikeNet
                 {
 
                     if (año1 == currentYear || año2 == currentYear)
-                        if (ncol <= currentMonth)
+                        if (ncol > currentMonth)
                             break;
 
                     string dstCurYear = "0";

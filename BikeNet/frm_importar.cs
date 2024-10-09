@@ -297,10 +297,14 @@ namespace BikeNet
                                 strtiempo = "";
                                 duracionsecs = -1;
 
-                                fecha = string.Format("{0:0000}{1:00}{2:00}", fecYear, fecMonth, fecDay);
-                                                        
-                                time_hms = string.Format("{0:00}:{1:00}:{2:00}", timeH, timeMin, timeSec);
-                                                             
+                                //fecha = string.Format("{0:0000}{1:00}{2:00}", fecYear, fecMonth, fecDay);
+                                fecha = fecYear.PadLeft(4, '0') + fecMonth.PadLeft(2, '0') 
+                                    + fecDay.PadLeft(2, '0') ;
+
+                                //time_hms = string.Format("{0:00}:{1:00}:{2:00}", timeH, timeMin, timeSec);
+                                time_hms = timeH + ":" + timeMin.PadLeft(2, '0') + ":"
+                                    + timeSec.PadLeft(2, '0');
+
                                 dgvImport.Rows.Add();
 
                               
